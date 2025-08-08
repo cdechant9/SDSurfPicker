@@ -283,33 +283,46 @@ function saveSpots(){
   localStorage.setItem('spots', JSON.stringify(spots));
 }
 
-// Calendar renderer (works desktop + mobile swipe)
+
+function weekdayLabel(dateStr){
+  // Force local midnight to avoid UTC off-by-one
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+// Calendar renderer (sorted per day best→worst)
 function renderCalendar(perSpot, dates){
   if (!calendarEl) return;
-  // sort rows by weekly avg
-  const rowsSorted = [...perSpot].map(s=>{
+
+  // Precompute per-spot weekly mean (kept for other views if needed)
+  const rows = perSpot.map(s=>{
     const mean = s.daySummaries.length ? s.daySummaries.reduce((a,b)=>a+b.avg,0)/s.daySummaries.length : 0;
     return { ...s, _mean: mean };
-  }).sort((a,b)=>b._mean - a._mean);
+  });
 
   calendarEl.innerHTML = dates.map(date=>{
-    // table by column (day)
-    const cells = rowsSorted.map(s=>{
+    // Build dayScores and sort best→worst
+    const dayScores = rows.map(s=>{
       const d = s.daySummaries.find(x=>x.date===date);
-      const avg = d ? d.avg : 0;
-      const rank = rankForDate(rowsSorted, date, s.spot.name);
-      const lbl = scoreLabel(avg);
+      const score = d ? d.avg : 0;
+      return { spot: s.spot, score, summary: d };
+    }).sort((a,b)=> b.score - a.score);
+
+    const cells = dayScores.map((entry, idx)=>{
+      const lbl = scoreLabel(entry.score);
       return `<div class="cell card">
-        <div><strong>${s.spot.name}</strong></div>
-        <div>Rank: #${rank} · <span class="${lbl.cls}">${avg.toFixed(2)}</span></div>
+        <div><strong>${entry.spot.name}</strong></div>
+        <div>Rank: #${idx+1} · <span class="${lbl.cls}">${entry.score.toFixed(2)}</span></div>
       </div>`;
     }).join('');
+
     return `<div class="day-col">
-      <div class="card" style="margin-bottom:6px;"><strong>${date}</strong></div>
+      <div class="card" style="margin-bottom:6px;"><strong>${weekdayLabel(date)}</strong></div>
       ${cells}
     </div>`;
   }).join('');
 }
+
 // helper: compute rank of a spot for a given date
 function rankForDate(rowsSorted, date, spotName){
   const dayScores = rowsSorted.map(s=>{

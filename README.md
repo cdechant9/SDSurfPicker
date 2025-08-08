@@ -14,3 +14,6 @@ Upload/replace `index.html`, `style.css`, `app.js`, and this `README.md` in your
 **Notes**
 - Tide can be missing; scoring continues.
 - If you see no data for a custom spot, nudge longitude 0.01–0.02° west to sit offshore.
+
+
+**Change:** Crowd sensitivity slider now defaults to **Off**.
