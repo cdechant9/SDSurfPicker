@@ -1,4 +1,4 @@
-// Surfwives Forecast — full mobile build with calendar + cards
+// Full build with calendar sorted per day + weekday label; crowd OFF by default
 // Elements
 const spotsEl = document.getElementById('spots');
 const addSpotBtn = document.getElementById('addSpot');
@@ -22,16 +22,19 @@ const calendarEl = document.getElementById('calendar');
 const errBox = document.getElementById('err');
 const tpl = document.getElementById('spotRowTpl');
 
-// Defaults (San Diego longboard-friendly) — Oceanside removed, Del Mar added
+// South -> North default spots (offshore coords), with typical west-facing orientation ≈ 260–270°
 const SAMPLE_SPOTS = [
-  { name: "Tourmaline Surf Park", lat: 32.8048, lon: -117.2591, orient: 260 },
-  { name: "La Jolla Shores", lat: 32.8569, lon: -117.2570, orient: 270 },
-  { name: "Cardiff Reef", lat: 33.0207, lon: -117.2848, orient: 255 },
-  { name: "San Elijo/Pipes", lat: 33.0352, lon: -117.2966, orient: 260 },
-  { name: "Swami's", lat: 33.0360, lon: -117.2931, orient: 260 },
-  { name: "Scripps Pier", lat: 32.8650, lon: -117.2530, orient: 270 },
-  { name: "Black's Beach (south)", lat: 32.8825, lon: -117.2525, orient: 270 },
-  { name: "Del Mar", lat: 32.9618, lon: -117.2653, orient: 270 }
+  { name: "Tourmaline Surf Park", lat: 32.7952, lon: -117.2550, orient: 260 },
+  { name: "La Jolla Shores",     lat: 32.8545, lon: -117.2572, orient: 270 },
+  { name: "Scripps Pier",         lat: 32.8662, lon: -117.2547, orient: 270 },
+  { name: "Black's Beach (south)",lat: 32.8890, lon: -117.2520, orient: 270 },
+  { name: "Del Mar",              lat: 32.9611, lon: -117.2680, orient: 270 },
+  { name: "Cardiff Reef",         lat: 33.0208, lon: -117.2804, orient: 255 },
+  { name: "San Elijo/Pipes",      lat: 33.0335, lon: -117.2938, orient: 260 },
+  { name: "Swami's",              lat: 33.0388, lon: -117.2954, orient: 260 },
+  { name: "Turnarounds",          lat: 33.0418, lon: -117.2975, orient: 260 },
+  { name: "Grandview",            lat: 33.0758, lon: -117.3145, orient: 260 },
+  { name: "Terramar",             lat: 33.1372, lon: -117.3425, orient: 260 }
 ];
 
 // Helpers
@@ -112,7 +115,6 @@ function normToBand(x, min, max){
   const width = 1.5;
   return clamp01(1 - dist / width);
 }
-// 0..1 suitability for mid-length (6'8" wide pointy)
 function midLengthSuitability(h, tidePref){
   const heightScore = normToBand(h.face_ft, 2.5, 5.5);
   const periodScore = Number.isFinite(h.wave_period) ? clamp01((h.wave_period - 7) / (14 - 7)) : 0;
@@ -283,9 +285,8 @@ function saveSpots(){
   localStorage.setItem('spots', JSON.stringify(spots));
 }
 
-
+// Weekday label
 function weekdayLabel(dateStr){
-  // Force local midnight to avoid UTC off-by-one
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 }
@@ -294,14 +295,12 @@ function weekdayLabel(dateStr){
 function renderCalendar(perSpot, dates){
   if (!calendarEl) return;
 
-  // Precompute per-spot weekly mean (kept for other views if needed)
   const rows = perSpot.map(s=>{
     const mean = s.daySummaries.length ? s.daySummaries.reduce((a,b)=>a+b.avg,0)/s.daySummaries.length : 0;
     return { ...s, _mean: mean };
   });
 
   calendarEl.innerHTML = dates.map(date=>{
-    // Build dayScores and sort best→worst
     const dayScores = rows.map(s=>{
       const d = s.daySummaries.find(x=>x.date===date);
       const score = d ? d.avg : 0;
@@ -334,10 +333,9 @@ function rankForDate(rowsSorted, date, spotName){
 
 // Run
 async function runForecast(){
-  // collapse settings on small screens after tapping Forecast
   if (window.matchMedia('(max-width: 720px)').matches) {
     settingsPanel.open = false;
-    cardsPanel.open = false; // keep cards collapsed by default
+    cardsPanel.open = false;
   }
 
   errBox.classList.add('hidden');
@@ -397,10 +395,8 @@ async function runForecast(){
   }
 
   const dates = perSpot[0].daySummaries.map(d=>d.date);
-  // render calendar
   renderCalendar(perSpot, dates);
 
-  // compute weekly summary + render cards
   const bestByDay = dates.map(date=>{
     let best=null;
     perSpot.forEach(s=>{
@@ -427,8 +423,8 @@ async function runForecast(){
         <span class="tag">Avg score: <span class="score">${champ.mean.toFixed(2)}</span></span>
         <span class="tag">Skill: ${skill}</span>
         <span class="tag">Board: ${board}</span>
-        <span class="tag">Tide: ${tidePref} (${['ignore','light','strong'][Number(tideImp)]})</span>
-        <span class="tag">Crowd: ${['ignore','light','strong'][Number(crowdImp)]}</span>
+        <span class="tag">Tide: ${tidePref} (${['off','light','strong'][Number(tideImp)]})</span>
+        <span class="tag">Crowd: ${['off','light','strong'][Number(crowdImp)]}</span>
       </div>
       <table class="table">
         <thead><tr><th>Rank</th><th>Spot</th><th>Avg AM score</th><th>Mid‑length?</th></tr></thead>
@@ -485,7 +481,6 @@ forecastBtn.addEventListener('click', runForecast);
 
 // Init
 function init(){
-  // collapse settings by default on mobile
   if (window.matchMedia('(max-width: 720px)').matches) {
     settingsPanel.open = false;
     cardsPanel.open = false;
@@ -494,32 +489,5 @@ function init(){
     cardsPanel.open = false;
   }
   loadSpots();
-}
-function loadSpots(){
-  const saved = JSON.parse(localStorage.getItem('spots') || 'null');
-  const spots = saved && Array.isArray(saved) && saved.length ? saved : SAMPLE_SPOTS;
-  spotsEl.innerHTML = '';
-  spots.forEach(addSpotRow);
-}
-function addSpotRow(spot={name:'',lat:'',lon:'',orient:270}){
-  const node = tpl.content.cloneNode(true);
-  const row = node.querySelector('.spot-row');
-  row.querySelector('.spot-name').value = spot.name || '';
-  row.querySelector('.spot-lat').value = spot.lat ?? '';
-  row.querySelector('.spot-lon').value = spot.lon ?? '';
-  row.querySelector('.spot-orient').value = spot.orient ?? 270;
-  row.querySelector('.delete').addEventListener('click', ()=>{ row.remove(); saveSpots(); });
-  Array.from(row.querySelectorAll('input')).forEach(inp=>inp.addEventListener('change', saveSpots));
-  spotsEl.appendChild(node);
-}
-function saveSpots(){
-  const rows = Array.from(document.querySelectorAll('.spot-row'));
-  const spots = rows.map(r=>({
-    name: r.querySelector('.spot-name').value.trim(),
-    lat: parseFloat(r.querySelector('.spot-lat').value),
-    lon: parseFloat(r.querySelector('.spot-lon').value),
-    orient: clamp360(parseFloat(r.querySelector('.spot-orient').value) || 270),
-  })).filter(s=>s.name && Number.isFinite(s.lat) && Number.isFinite(s.lon));
-  localStorage.setItem('spots', JSON.stringify(spots));
 }
 init();

@@ -54,7 +54,7 @@ footer { text-align:center; color:var(--muted); padding: 24px; }
 
 /* MOBILE: swipe columns */
 @media (max-width: 720px) {
-  .settings[open] { /* collapse settings by default on phones via script; CSS keeps styles tidy */ }
+  .settings[open] { /* collapsed by default via JS */ }
   .calendar {
     display: flex;
     overflow-x: auto;
