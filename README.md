@@ -1,4 +1,4 @@
-# Best Surf Beach — Weekly Picker 🏄‍♂️
+# Best Surf Beach — Official Surfwives Beach Selector 🏄‍♂️ 🏳️‍🌈
 
 **This build fixes a bug where scores showed as 0 if the Tide API failed.**  
 Tide is now optional; waves/wind forecast will still score even if tide data is unavailable for your exact coordinates.
@@ -7,8 +7,8 @@ Tide is now optional; waves/wind forecast will still score even if tide data is 
 - Board + skill aware scoring
 - Tide preference (Low/Mid/High) with importance slider
 - Crowd factor (ignore/light/strong), optional weekend & 7–9am penalties
-- **Mid‑length 🤙 hint** when conditions favor a ~6'8″ wide pointy board
-- San Diego defaults (Oceanside removed, **Del Mar** added)
+- **Mid‑length 🤙 hint** when conditions favor a ~6'8″ wide pointy board (Tells cam when to take out Danny Devito vs Brody).
+- San Diego defaults, surfwives regular spots
 - Error banner shows the last fetch problem, if any
 
 ### Publish on GitHub Pages
