@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Best Surf Beach — Weekly Picker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🏄‍♂️ Best Surf Beach — Weekly Picker</h1>
+    <p class="sub">Forecasts the next 7 days and tells you where to surf. No API key required.</p>
+  </header>
+
+  <section class="controls">
+    <div class="control">
+      <label for="skill">Skill level</label>
+      <select id="skill">
+        <option value="beginner">Beginner (1–3 ft)</option>
+        <option value="intermediate" selected>Intermediate (2–6 ft)</option>
+        <option value="advanced">Advanced (4–12 ft)</option>
+      </select>
+      <small>Used to score ideal wave height.</small>
+    </div>
+
+    <div class="control">
+      <label for="board">Board type</label>
+      <select id="board">
+        <option value="shortboard">Shortboard</option>
+        <option value="fish">Fish / Funboard</option>
+        <option value="longboard" selected>Longboard</option>
+      </select>
+      <small>Longboard preset favors 1–4 ft waves, mellow period, and is more tolerant of light onshore breezes.</small>
+    </div>
+
+    <div class="control">
+      <label for="tidePref">Tide preference</label>
+      <div class="row">
+        <select id="tidePref">
+          <option value="low">Low (0–1.5 ft)</option>
+          <option value="mid" selected>Mid (1.5–3 ft)</option>
+          <option value="high">High (3–5 ft)</option>
+        </select>
+        <div class="range-wrap">
+          <label for="tideImp">Tide importance</label>
+          <input id="tideImp" type="range" min="0" max="2" step="1" value="1" />
+          <div class="range-labels"><span>Ignore</span><span>Light</span><span>Strong</span></div>
+        </div>
+      </div>
+      <small>We’ll nudge scores toward your preferred tide when morning tides match.</small>
+    </div>
+
+    <div class="control">
+      <label>Crowd factor</label>
+      <div class="row">
+        <div class="range-wrap">
+          <label for="crowdImp">Crowd sensitivity</label>
+          <input id="crowdImp" type="range" min="0" max="2" step="1" value="1" />
+          <div class="range-labels"><span>Ignore</span><span>Light</span><span>Strong</span></div>
+        </div>
+        <label><input id="crowdWeekend" type="checkbox" checked> Penalize weekends</label>
+        <label><input id="crowdPeak" type="checkbox" checked> Penalize 7–9am peak</label>
+        <label><input id="midHint" type="checkbox" checked> Suggest mid‑length</label>
+      </div>
+      <small>Heuristic crowd penalty; for vibes-only. The mid‑length hint shows when your 6'8″ might shine.</small>
+    </div>
+
+    <div class="control">
+      <label>Spots</label>
+      <div id="spots"></div>
+      <button id="addSpot" class="secondary">+ Add spot</button>
+      <small>Tip: Orientation = the direction the beach faces. West-facing ≈ 270°, south ≈ 180°, etc.</small>
+    </div>
+
+    <div class="control">
+      <button id="forecast" class="primary">🔮 Forecast week</button>
+      <button id="reset" class="link">Reset to San Diego sample</button>
+    </div>
+  </section>
+
+  <section id="results" class="results hidden">
+    <h2>Results</h2>
+    <div id="summary"></div>
+    <div id="daily"></div>
+  </section>
+
+  <footer>
+    <p>Data: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo Marine & Tide</a>. All heuristics are for fun. Double-check cams and local knowledge.</p>
+  </footer>
+
+  <template id="spotRowTpl">
+    <div class="spot-row">
+      <input class="spot-name" placeholder="Name (e.g., Black's Beach)" />
+      <input class="spot-lat" placeholder="Lat" type="number" step="any" />
+      <input class="spot-lon" placeholder="Lon" type="number" step="any" />
+      <input class="spot-orient" placeholder="Orientation° (0–359)" type="number" min="0" max="359" />
+      <button class="delete">✕</button>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
