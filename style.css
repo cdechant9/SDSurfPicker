@@ -4,7 +4,7 @@ html, body { margin:0; padding:0; font-family: system-ui,-apple-system,Segoe UI,
 header { padding:24px 16px; text-align:center; border-bottom:1px solid #1f2937; }
 h1 { margin:0; font-size: clamp(24px, 4vw, 36px); }
 .sub { color:var(--muted); margin-top:6px; }
-section { padding:16px; max-width:1100px; margin:0 auto; }
+section { padding:16px; max-width:1200px; margin:0 auto; }
 .controls { display:grid; gap:16px; grid-template-columns:1fr; }
 .control { background:var(--card); padding:12px; border:1px solid #1f2937; border-radius:10px; }
 label { font-weight:600; margin-right:8px; }
@@ -23,7 +23,7 @@ button.link { background:transparent; border:none; color:var(--muted); text-deco
 .grid { display:grid; gap:12px; }
 .grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-@media (max-width: 900px){ .grid.cols-3 { grid-template-columns:1fr; } .spot-row { grid-template-columns:1fr 1fr 1fr 1fr auto; } }
+@media (max-width: 1000px){ .grid.cols-3 { grid-template-columns:1fr; } .spot-row { grid-template-columns:1fr 1fr 1fr 1fr auto; } }
 .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #1f2937; background:#0b1220; color:var(--muted); margin-right:6px; }
 .score { font-weight:800; }
 .bad { color:var(--bad); } .ok { color:var(--ok); } .good { color:var(--good); }
@@ -38,5 +38,14 @@ footer { text-align:center; color:var(--muted); padding: 24px; }
 .range-labels { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-top:-4px; }
 .err { margin-top:10px; background:#3a0b0b; color:#ffbfbf; border:1px solid #7f1d1d; border-radius:10px; padding:8px; }
 .hidden { display:none; }
-.debug { max-width:1100px; margin:12px auto; }
-#debugLog { background:#0b1220; color:#cbd5e1; padding:12px; border-radius:10px; border:1px dashed #1f2937; overflow:auto; max-height:300px; }
+.calendar-wrap { overflow:auto; }
+.calendar { width:100%; border-collapse: collapse; margin-top:8px; }
+.calendar th, .calendar td { border-bottom:1px solid #1f2937; border-right:1px solid #1f2937; padding:8px; text-align:center; }
+.calendar th:first-child, .calendar td:first-child { text-align:left; position:sticky; left:0; background:#0f172a; }
+.rank { font-weight:800; }
+.cell-badge { display:inline-block; padding:2px 6px; border-radius:6px; font-size:12px; }
+.cell-good { background:#0b3a28; color:#9ff6ce; }
+.cell-ok { background:#3a2f0b; color:#f7e7a6; }
+.cell-bad { background:#3a0b0b; color:#ffbfbf; }
+details > summary { cursor:pointer; list-style: none; }
+details > summary::-webkit-details-marker { display:none; }

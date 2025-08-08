@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Best Surf Beach — Weekly Picker</title>
+  <title>🏄‍♂ 🏳️‍🌈 Surfwives Forecast — Weekly Picker</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -76,21 +76,23 @@
     <div class="control">
       <button id="forecast" class="primary">🔮 Forecast week</button>
       <button id="reset" class="link">Reset to San Diego sample</button>
-      <label style="margin-left:12px;"><input id="debugToggle" type="checkbox" checked> Debug mode</label>
     </div>
   </section>
 
   <section id="results" class="results hidden">
     <h2>Results</h2>
     <div id="summary"></div>
-    <div id="daily"></div>
-  </section>
 
-  <section class="debug">
-    <details open>
-      <summary>Debug log</summary>
-      <pre id="debugLog">(waiting)</pre>
+    <div id="calendar" class="card" style="margin-top:12px;">
+      <h3>Calendar view — daily ranks by spot</h3>
+      <div id="calendarTableWrap" class="calendar-wrap"></div>
+    </div>
+
+    <details id="cardsSection" class="card" style="margin-top:12px;">
+      <summary><strong>Per-day cards (click to expand)</strong></summary>
+      <div id="daily" style="margin-top:10px;"></div>
     </details>
+
   </section>
 
   <footer>
