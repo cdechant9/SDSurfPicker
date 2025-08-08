@@ -1,5 +1,4 @@
-// Best Surf Beach — Weekly Picker (Tide + Crowd + Mid-length hint)
-// Elements
+// Best Surf Beach — Weekly Picker (Tide + Crowd + Mid-length) — tide optional fix
 const spotsEl = document.getElementById('spots');
 const addSpotBtn = document.getElementById('addSpot');
 const forecastBtn = document.getElementById('forecast');
@@ -15,9 +14,9 @@ const midHintEl = document.getElementById('midHint');
 const results = document.getElementById('results');
 const summary = document.getElementById('summary');
 const daily = document.getElementById('daily');
+const errBox = document.getElementById('err');
 const tpl = document.getElementById('spotRowTpl');
 
-// Defaults (San Diego longboard-friendly) — Oceanside removed, Del Mar added
 const SAMPLE_SPOTS = [
   { name: "Tourmaline Surf Park", lat: 32.8048, lon: -117.2591, orient: 260 },
   { name: "La Jolla Shores", lat: 32.8569, lon: -117.2570, orient: 270 },
@@ -29,20 +28,17 @@ const SAMPLE_SPOTS = [
   { name: "Del Mar", lat: 32.9618, lon: -117.2653, orient: 270 }
 ];
 
-// Helpers
 function clamp360(x){ return ((x % 360) + 360) % 360; }
 function degDiff(a,b){ const d=Math.abs(clamp360(a)-clamp360(b))%360; return d>180?360-d:d; }
 function feet(m){ return m*3.28084; }
 function clamp01(x){ return Math.max(0, Math.min(1, x)); }
 
-// Skill targets (ft face)
 const skillTargets = {
   beginner:{min:1,max:3},
   intermediate:{min:2,max:6},
   advanced:{min:4,max:12}
 };
 
-// Board presets
 const boardPresets = {
   shortboard:{ height:{min:3,max:8}, periodPref:{softMin:10,softMax:18}, windTolerance:{ktSoft:6,ktHard:16,offshoreSpan:120} },
   fish:{ height:{min:2,max:6}, periodPref:{softMin:9,softMax:16}, windTolerance:{ktSoft:8,ktHard:18,offshoreSpan:135} },
@@ -50,6 +46,7 @@ const boardPresets = {
 };
 
 function heightScore(ft, skill, preset){
+  if (!Number.isFinite(ft)) return 0;
   const s = skillTargets[skill] || skillTargets.intermediate;
   const p = preset?.height || boardPresets.longboard.height;
   const min = 0.6*p.min + 0.4*s.min;
@@ -61,6 +58,7 @@ function heightScore(ft, skill, preset){
 }
 
 function periodScoreWithPreset(sec, preset){
+  if (!Number.isFinite(sec)) return 0;
   const {softMin, softMax} = preset.periodPref;
   if (sec <= softMin){
     return Math.max(0, Math.min(1, (sec-6)/Math.max(1,(softMin-6))));
@@ -73,6 +71,7 @@ function periodScoreWithPreset(sec, preset){
 }
 
 function windScoreWithPreset(speedKt, windDir, beachOrient, preset){
+  if (!Number.isFinite(speedKt) || !Number.isFinite(windDir)) return 0;
   const offshore = clamp360(beachOrient+180);
   const angle = degDiff(windDir, offshore);
   const span = preset.windTolerance.offshoreSpan;
@@ -85,39 +84,33 @@ function windScoreWithPreset(speedKt, windDir, beachOrient, preset){
   return Math.max(0, dirScore - speedPenalty);
 }
 
-// Tide helpers
-function tideBand(pref){ // feet
-  if (pref === 'low') return {min:0, max:1.5};
-  if (pref === 'high') return {min:3, max:5};
-  return {min:1.5, max:3}; // mid default
-}
+function tideBand(pref){ if (pref === 'low') return {min:0, max:1.5}; if (pref === 'high') return {min:3, max:5}; return {min:1.5, max:3}; }
 function tideScoreFt(ft, pref){
+  if (!Number.isFinite(ft)) return 0.6;
   const band = tideBand(pref);
   if (ft >= band.min && ft <= band.max) return 1;
   const dist = Math.min(Math.abs(ft - (ft < band.min ? band.min : band.max)), 2.5);
   return Math.max(0, 1 - dist/2.5);
 }
 
-// Mid-length helpers
+// Mid-length suitability
 function normToBand(x, min, max){
+  if (!Number.isFinite(x)) return 0;
   if (x >= min && x <= max) return 1;
   const edge = x < min ? min : max;
   const dist = Math.abs(x - edge);
-  const width = 1.5; // falloff width for height (ft); period handled separately as range width
+  const width = 1.5;
   return clamp01(1 - dist / width);
 }
-// 0..1 suitability for mid-length (6'8" wide pointy)
 function midLengthSuitability(h, tidePref){
-  const heightScore = normToBand(h.face_ft, 2.5, 5.5);     // ~chest to head
-  const periodScore = clamp01((h.wave_period - 7) / (14 - 7)); // 7->14s maps to 0..1
-  const windScore   = clamp01(h.wind_score);                // 0..1 reused from wind comp
-  const tideScore   = (typeof h.tide_height_ft === 'number')
-    ? tideScoreFt(h.tide_height_ft, tidePref)
-    : 0.6;
+  const heightScore = normToBand(h.face_ft, 2.5, 5.5);
+  const periodScore = Number.isFinite(h.wave_period) ? clamp01((h.wave_period - 7) / (14 - 7)) : 0;
+  const windScore   = clamp01(h.wind_score ?? 0);
+  const tideScore   = tideScoreFt(h.tide_height_ft, tidePref);
   return 0.40*heightScore + 0.25*windScore + 0.20*periodScore + 0.15*tideScore;
 }
 
-// Fetch: waves/wind + tides
+// APIs
 async function fetchMarine(lat, lon){
   const url = new URL('https://api.open-meteo.com/v1/marine');
   url.searchParams.set('latitude', lat);
@@ -126,28 +119,28 @@ async function fetchMarine(lat, lon){
   url.searchParams.set('forecast_days','7');
   url.searchParams.set('timezone','auto');
   const res = await fetch(url.toString());
-  if (!res.ok) throw new Error('Marine API error');
+  if (!res.ok) throw new Error('Marine API error: ' + res.status);
   return res.json();
 }
-async function fetchTide(lat, lon){
-  const url = new URL('https://marine-api.open-meteo.com/v1/tide');
-  url.searchParams.set('latitude', lat);
-  url.searchParams.set('longitude', lon);
-  url.searchParams.set('hourly','tide_height');
-  url.searchParams.set('forecast_days','7');
-  url.searchParams.set('timezone','auto');
+async function tryFetchTide(lat, lon){
   try{
+    const url = new URL('https://marine-api.open-meteo.com/v1/tide');
+    url.searchParams.set('latitude', lat);
+    url.searchParams.set('longitude', lon);
+    url.searchParams.set('hourly','tide_height');
+    url.searchParams.set('forecast_days','7');
+    url.searchParams.set('timezone','auto');
     const res = await fetch(url.toString());
-    if (!res.ok) throw new Error('Tide API error');
+    if (!res.ok) throw new Error('Tide API error: ' + res.status);
     return res.json();
   }catch(e){
-    console.warn('Tide fetch failed', lat, lon, e);
+    console.warn('Tide fetch failed', e);
     return null;
   }
 }
 
 function buildHoursMarine(data){
-  const t = data.hourly.time;
+  const t = data?.hourly?.time || [];
   return t.map((time,i)=>({ time,
     wave_height: data.hourly.wave_height[i],
     wave_period: data.hourly.wave_period[i],
@@ -160,6 +153,7 @@ function buildHoursTide(data){
   return t.map((time,i)=>({ time, tide_height: data.hourly.tide_height[i] }));
 }
 function mergeTide(marineHours, tideHours){
+  if (!Array.isArray(marineHours) || !marineHours.length) return [];
   if (!tideHours) return marineHours.map(h=>({...h, tide_height_ft: null}));
   const tideMap = new Map(tideHours.map(h=>[h.time, h.tide_height]));
   return marineHours.map(h=>{
@@ -169,15 +163,12 @@ function mergeTide(marineHours, tideHours){
   });
 }
 
-// Crowd penalty (simple, heuristic)
 function crowdPenaltyForHour(dateIso, sensitivity, penalizeWeekend, penalizePeak){
   const d = new Date(dateIso);
-  const day = d.getDay(); // 0=Sun..6=Sat
+  const day = d.getDay();
   const hr = d.getHours();
-  const sens = Number(sensitivity); // 0,1,2
+  const sens = Number(sensitivity);
   if (sens === 0) return 0;
-
-  // Base penalty scales 0.0, 0.05, 0.10
   let penalty = sens * 0.05;
   if (penalizeWeekend && (day === 0 || day === 6)) penalty += sens * 0.05;
   if (penalizePeak && hr >= 7 && hr <= 9) penalty += sens * 0.05;
@@ -190,17 +181,16 @@ function summarizeDay(hours, skill, orient, board, tidePref, tideImp, crowdImp, 
     return hr >= 6 && hr <= 11;
   });
   const sample = morning.length ? morning : hours;
+  if (!sample.length) return { best:null, avgScore:0, avgMid:0 };
   const preset = boardPresets[board] || boardPresets.longboard;
 
   const tideWeight = Math.min(0.30, Math.max(0, Number(tideImp) * 0.15));
   const baseWeight = 1 - tideWeight;
 
-  let best = null;
-  let acc = 0;
-  let midAcc = 0;
+  let best = null, acc = 0, midAcc = 0;
   for (const h of sample){
     const hft = feet(h.wave_height);
-    const wspdKt = h.wind_speed_10m * 1.94384;
+    const wspdKt = (h.wind_speed_10m ?? 0) * 1.94384;
     const wdir = h.wind_direction_10m;
 
     const heightComp = heightScore(hft, skill, preset);
@@ -208,14 +198,13 @@ function summarizeDay(hours, skill, orient, board, tidePref, tideImp, crowdImp, 
     const windComp = windScoreWithPreset(wspdKt, wdir, orient, preset);
     let s = baseWeight * (0.50*heightComp + 0.25*periodComp + 0.25*windComp);
 
-    if (tideWeight > 0 && typeof h.tide_height_ft === 'number'){
+    if (tideWeight > 0){
       s += tideWeight * tideScoreFt(h.tide_height_ft, tidePref);
     }
 
     const cpen = crowdPenaltyForHour(h.time, crowdImp, crowdWeekend, crowdPeak);
     s = Math.max(0, s * (1 - cpen));
 
-    // Mid-length suitability
     const hourForMid = { face_ft: hft, wave_period: h.wave_period, wind_score: windComp, tide_height_ft: h.tide_height_ft };
     const midScore = midLengthSuitability(hourForMid, tidePref);
     midAcc += midScore;
@@ -231,7 +220,6 @@ function summarizeDay(hours, skill, orient, board, tidePref, tideImp, crowdImp, 
 
 function scoreLabel(s){ if (s>=0.75) return {label:'great',cls:'good'}; if (s>=0.5) return {label:'okay',cls:'ok'}; return {label:'meh',cls:'bad'}; }
 
-// Spots UI
 function loadSpots(){
   const saved = JSON.parse(localStorage.getItem('spots') || 'null');
   const spots = saved && Array.isArray(saved) && saved.length ? saved : SAMPLE_SPOTS;
@@ -260,8 +248,9 @@ function saveSpots(){
   localStorage.setItem('spots', JSON.stringify(spots));
 }
 
-// Run
 async function runForecast(){
+  errBox.classList.add('hidden');
+  errBox.textContent = '';
   saveSpots();
   const skill = skillSel.value;
   const board = boardSel.value;
@@ -282,11 +271,10 @@ async function runForecast(){
   const perSpot = [];
   for (const spot of spots){
     try{
-      const [marine, tide] = await Promise.all([
-        fetchMarine(spot.lat, spot.lon),
-        fetchTide(spot.lat, spot.lon)
-      ]);
+      const marine = await fetchMarine(spot.lat, spot.lon);
+      const tide = await tryFetchTide(spot.lat, spot.lon); // optional
       const hours = mergeTide(buildHoursMarine(marine), buildHoursTide(tide));
+      if (!hours.length) throw new Error('No hourly data returned');
       const days = {};
       for (const h of hours){
         const d = h.time.slice(0,10);
@@ -294,16 +282,23 @@ async function runForecast(){
       }
       const daySummaries = Object.entries(days).map(([date, hrs])=>{
         const sum = summarizeDay(hrs, skill, spot.orient, board, tidePref, tideImp, crowdImp, crowdWeekend, crowdPeak, midHint);
-        return { date, best: sum.best, avg: sum.avgScore, avgMid: sum.avgMid };
+        return { date, best: sum.best, avg: Number.isFinite(sum.avgScore)?sum.avgScore:0, avgMid: Number.isFinite(sum.avgMid)?sum.avgMid:0 };
       });
       perSpot.push({ spot, daySummaries });
     }catch(e){
       console.error(e);
+      errBox.textContent = 'Last error: '+ e.message;
+      errBox.classList.remove('hidden');
       perSpot.push({ spot, error:true, daySummaries: [] });
     }
   }
 
-  const dates = perSpot[0]?.daySummaries.map(d=>d.date) || [];
+  if (!perSpot.length || !perSpot[0].daySummaries.length){
+    summary.innerHTML = '<div class="card">No forecast data. Try clicking “Reset to San Diego sample”, then “Forecast week”.</div>';
+    return;
+  }
+
+  const dates = perSpot[0].daySummaries.map(d=>d.date);
   const bestByDay = dates.map(date=>{
     let best=null;
     perSpot.forEach(s=>{
@@ -349,12 +344,12 @@ async function runForecast(){
   daily.innerHTML = '<div class="grid cols-3"></div>';
   const grid = daily.querySelector('.grid');
   bestByDay.forEach(d=>{
-    if (!d) return;
+    if (!d || !d.best) return;
     const lbl = scoreLabel(d.avg);
     const bh = feet(d.best.wave_height).toFixed(1);
-    const per = d.best.wave_period.toFixed(0);
-    const wkt = (d.best.wind_speed_10m * 1.94384).toFixed(0);
-    const wdir = d.best.wind_direction_10m.toFixed(0);
+    const per = Number.isFinite(d.best.wave_period) ? d.best.wave_period.toFixed(0) : '—';
+    const wkt = Number.isFinite(d.best.wind_speed_10m) ? (d.best.wind_speed_10m * 1.94384).toFixed(0) : '—';
+    const wdir = Number.isFinite(d.best.wind_direction_10m) ? d.best.wind_direction_10m.toFixed(0) : '—';
     const when = new Date(d.best.time).toLocaleString([], { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
     const tideFt = (typeof d.best.tide_height_ft === 'number') ? d.best.tide_height_ft.toFixed(1)+' ft' : '—';
     const midTag = (d.best.mid_flag) ? '<span class="badge good">Mid‑length 🤙</span>' : '';
@@ -381,18 +376,11 @@ async function runForecast(){
   });
 }
 
-// Events
 addSpotBtn.addEventListener('click', ()=>addSpotRow());
 resetBtn.addEventListener('click', ()=>{ localStorage.removeItem('spots'); loadSpots(); });
 forecastBtn.addEventListener('click', runForecast);
 
-// Init
-function loadSpots(){
-  const saved = JSON.parse(localStorage.getItem('spots') || 'null');
-  const spots = saved && Array.isArray(saved) && saved.length ? saved : SAMPLE_SPOTS;
-  spotsEl.innerHTML = '';
-  spots.forEach(addSpotRow);
-}
+function init(){ loadSpots(); }
 function addSpotRow(spot={name:'',lat:'',lon:'',orient:270}){
   const node = tpl.content.cloneNode(true);
   const row = node.querySelector('.spot-row');
@@ -414,4 +402,4 @@ function saveSpots(){
   })).filter(s=>s.name && Number.isFinite(s.lat) && Number.isFinite(s.lon));
   localStorage.setItem('spots', JSON.stringify(spots));
 }
-loadSpots();
+init();
