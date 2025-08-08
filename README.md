@@ -1,15 +1,16 @@
-# Surfwives Forecast — Weekly Picker
+# Surfwives Forecast — Weekly Picker (Mobile‑friendly)
 
-This version adds a **Calendar view** (columns = next 7 days, rows = your spots), showing **daily rank + Avg AM score** in each cell. The original **Per‑day cards** are still there, now collapsed by default.
+This build adds:
+- **Swipeable calendar** on phones (snap‑to‑day columns)
+- **Sticky Forecast bar** at the bottom (with safe‑area)
+- **Controls collapsed** by default on mobile
+- **Per‑day cards** kept as a section, **collapsed by default**; horizontal scroll on phones
+- Larger tap targets (prevents iOS zoom)
 
-Also updated title: **🏄‍♂ 🏳️‍🌈 Surfwives Forecast — Weekly Picker**  
-Footer: “All heuristics are for fun. Double-check cams and local knowledge (Martin and Noah's opinions).”
+Footer line: “All heuristics are for fun. Double-check cams and local knowledge (Martin and Noah's opinions).”
 
 ## Deploy
-Upload/replace `index.html`, `style.css`, `app.js`, `README.md` to your repo and enable GitHub Pages.
+Upload/replace `index.html`, `style.css`, `app.js`, `manifest.webmanifest`, and `README.md` → commit to `main` → refresh your Pages site.
 
-## Use
-1. Set your preferences (skill, board, tide, crowd, mid‑length).
-2. Add/edit your spots.
-3. Click **Forecast week**.
-4. See weekly pick, the **Calendar view**, and expand **Per‑day cards** if you want the narrative view.
+## Tip
+If a spot returns “No hourly data,” nudge longitude ~0.01–0.02° **west** (slightly offshore). Tide can fail; waves/wind still score.

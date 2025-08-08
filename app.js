@@ -1,4 +1,13 @@
-// Calendar build with existing scoring, plus collapsed per-day cards, and new title/footer already in HTML.
+// Mobile-friendly build: swipeable calendar, sticky CTA, collapsed sections
+// (Keeps tide, crowd, mid-length, and calendar features.)
+
+// --- Utility ---
+function clamp360(x){ return ((x % 360) + 360) % 360; }
+function degDiff(a,b){ const d=Math.abs(clamp360(a)-clamp360(b))%360; return d>180?360-d:d; }
+function feet(m){ return m*3.28084; }
+function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+
+// --- Elements ---
 const spotsEl = document.getElementById('spots');
 const addSpotBtn = document.getElementById('addSpot');
 const forecastBtn = document.getElementById('forecast');
@@ -13,11 +22,23 @@ const crowdPeakEl = document.getElementById('crowdPeak');
 const midHintEl = document.getElementById('midHint');
 const results = document.getElementById('results');
 const summary = document.getElementById('summary');
+const calendar = document.getElementById('calendar');
 const daily = document.getElementById('daily');
-const calendarWrap = document.getElementById('calendarTableWrap');
-const tpl = document.getElementById('spotRowTpl');
+const cardsDetails = document.getElementById('cardsDetails');
+const settingsDetails = document.getElementById('settingsDetails');
 const errBox = document.getElementById('err');
+const tpl = document.getElementById('spotRowTpl');
 
+// Collapse settings by default on mobile
+if (window.matchMedia('(max-width: 720px)').matches) {
+  settingsDetails.open = false;
+  cardsDetails.open = false;
+} else {
+  settingsDetails.open = true;
+  cardsDetails.open = false;
+}
+
+// --- Defaults (San Diego) ---
 const SAMPLE_SPOTS = [
   { name: "Tourmaline Surf Park", lat: 32.8048, lon: -117.2591, orient: 260 },
   { name: "La Jolla Shores", lat: 32.8569, lon: -117.2570, orient: 270 },
@@ -29,11 +50,7 @@ const SAMPLE_SPOTS = [
   { name: "Del Mar", lat: 32.9618, lon: -117.2653, orient: 270 }
 ];
 
-function clamp360(x){ return ((x % 360) + 360) % 360; }
-function degDiff(a,b){ const d=Math.abs(clamp360(a)-clamp360(b))%360; return d>180?360-d:d; }
-function feet(m){ return m*3.28084; }
-function clamp01(x){ return Math.max(0, Math.min(1, x)); }
-
+// --- Scoring presets ---
 const skillTargets = { beginner:{min:1,max:3}, intermediate:{min:2,max:6}, advanced:{min:4,max:12} };
 const boardPresets = {
   shortboard:{ height:{min:3,max:8}, periodPref:{softMin:10,softMax:18}, windTolerance:{ktSoft:6,ktHard:16,offshoreSpan:120} },
@@ -55,12 +72,8 @@ function heightScore(ft, skill, preset){
 function periodScoreWithPreset(sec, preset){
   if (!Number.isFinite(sec)) return 0;
   const {softMin, softMax} = preset.periodPref;
-  if (sec <= softMin){
-    return Math.max(0, Math.min(1, (sec-6)/Math.max(1,(softMin-6))));
-  }
-  if (sec >= softMax){
-    return 0.8 + Math.min(0.2, (sec-softMax)/6);
-  }
+  if (sec <= softMin){ return Math.max(0, Math.min(1, (sec-6)/Math.max(1,(softMin-6)))); }
+  if (sec >= softMax){ return 0.8 + Math.min(0.2, (sec-softMax)/6); }
   const x = (sec-softMin)/Math.max(1,(softMax-softMin));
   return 0.6 + 0.4 * Math.max(0, Math.min(1, x));
 }
@@ -78,12 +91,39 @@ function windScoreWithPreset(speedKt, windDir, beachOrient, preset){
   return Math.max(0, dirScore - speedPenalty);
 }
 
-// Tide & mid-length helpers
+// Tide helpers
 function tideBand(pref){ if (pref === 'low') return {min:0, max:1.5}; if (pref === 'high') return {min:3, max:5}; return {min:1.5, max:3}; }
-function tideScoreFt(ft, pref){ if (!Number.isFinite(ft)) return 0.6; const b=tideBand(pref); if (ft>=b.min && ft<=b.max) return 1; const dist=Math.min(Math.abs(ft-(ft<b.min?b.min:b.max)),2.5); return Math.max(0,1-dist/2.5); }
-function normToBand(x, min, max){ if (!Number.isFinite(x)) return 0; if (x>=min && x<=max) return 1; const edge=x<min?min:max; const dist=Math.abs(x-edge); return clamp01(1 - dist/1.5); }
+function tideScoreFt(ft, pref){
+  if (!Number.isFinite(ft)) return 0.6;
+  const band = tideBand(pref);
+  if (ft >= band.min && ft <= band.max) return 1;
+  const dist = Math.min(Math.abs(ft - (ft < band.min ? band.min : band.max)), 2.5);
+  return Math.max(0, 1 - dist/2.5);
+}
 
-// APIs
+// Mid-length helpers
+function normToBand(x, min, max){
+  if (!Number.isFinite(x)) return 0;
+  if (x >= min && x <= max) return 1;
+  const edge = x < min ? min : max;
+  const dist = Math.abs(x - edge);
+  const width = 1.5;
+  return clamp01(1 - dist / width);
+}
+function midLengthSuitability(h, tidePref){
+  const heightScore = normToBand(h.face_ft, 2.5, 5.5);
+  const periodScore = Number.isFinite(h.wave_period) ? clamp01((h.wave_period - 7) / (14 - 7)) : 0;
+  const windScore   = clamp01(h.wind_score ?? 0);
+  const tideScore   = tideScoreFt(h.tide_height_ft, tidePref);
+  return 0.40*heightScore + 0.25*windScore + 0.20*periodScore + 0.15*tideScore;
+}
+
+// --- API fetchers ---
+async function fetchJson(url){
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+  return res.json();
+}
 async function fetchMarine(lat, lon){
   const url = new URL('https://marine-api.open-meteo.com/v1/marine');
   url.searchParams.set('latitude', lat);
@@ -91,9 +131,7 @@ async function fetchMarine(lat, lon){
   url.searchParams.set('hourly','wave_height,wave_period');
   url.searchParams.set('forecast_days','7');
   url.searchParams.set('timezone','auto');
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error('Marine API error: ' + res.status);
-  return res.json();
+  return fetchJson(url.toString());
 }
 async function fetchWind(lat, lon){
   const url = new URL('https://api.open-meteo.com/v1/forecast');
@@ -102,9 +140,7 @@ async function fetchWind(lat, lon){
   url.searchParams.set('hourly','wind_speed_10m,wind_direction_10m');
   url.searchParams.set('forecast_days','7');
   url.searchParams.set('timezone','auto');
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error('Forecast API error: ' + res.status);
-  return res.json();
+  return fetchJson(url.toString());
 }
 async function tryFetchTide(lat, lon){
   try{
@@ -114,12 +150,11 @@ async function tryFetchTide(lat, lon){
     url.searchParams.set('hourly','tide_height');
     url.searchParams.set('forecast_days','7');
     url.searchParams.set('timezone','auto');
-    const res = await fetch(url.toString());
-    if (!res.ok) throw new Error('Tide API error: ' + res.status);
-    return res.json();
-  }catch(e){ console.warn('Tide fetch failed', e); return null; }
+    return await fetchJson(url.toString());
+  }catch(e){ return null; }
 }
 
+// Build hour arrays
 function buildHoursMarine(data){
   const t = data?.hourly?.time || [];
   return t.map((time,i)=>({ time, wave_height: data.hourly.wave_height[i], wave_period: data.hourly.wave_period[i] }));
@@ -134,6 +169,7 @@ function buildHoursTide(data){
   return t.map((time,i)=>({ time, tide_height_ft: (typeof data.hourly.tide_height[i]==='number' ? data.hourly.tide_height[i]*3.28084 : null) }));
 }
 
+// Merge by time
 function mergeByTime(...series){
   const map = new Map();
   for (const arr of series){
@@ -147,19 +183,24 @@ function mergeByTime(...series){
   return Array.from(map.values()).sort((a,b)=>a.time.localeCompare(b.time));
 }
 
+// Crowd penalty
 function crowdPenaltyForHour(dateIso, sensitivity, penalizeWeekend, penalizePeak){
-  const d = new Date(dateIso); const day=d.getDay(); const hr=d.getHours(); const sens=Number(sensitivity); if (sens===0) return 0;
+  const d = new Date(dateIso);
+  const day = d.getDay(); const hr = d.getHours();
+  const sens = Number(sensitivity); if (sens === 0) return 0;
   let penalty = sens * 0.05;
-  if (penalizeWeekend && (day===0 || day===6)) penalty += sens*0.05;
-  if (penalizePeak && hr>=7 && hr<=9) penalty += sens*0.05;
+  if (penalizeWeekend && (day===0 || day===6)) penalty += sens * 0.05;
+  if (penalizePeak && hr>=7 && hr<=9) penalty += sens * 0.05;
   return Math.min(0.20, penalty);
 }
 
+// Summarize each day
 function summarizeDay(hours, skill, orient, board, tidePref, tideImp, crowdImp, crowdWeekend, crowdPeak, midHint){
-  const morning = hours.filter(h=>{ const hr=new Date(h.time).getHours(); return hr>=6 && hr<=11; });
+  const morning = hours.filter(h=>{ const hr = new Date(h.time).getHours(); return hr >= 6 && hr <= 11; });
   const sample = morning.length ? morning : hours;
   if (!sample.length) return { best:null, avgScore:0, avgMid:0 };
   const preset = boardPresets[board] || boardPresets.longboard;
+
   const tideWeight = Math.min(0.30, Math.max(0, Number(tideImp) * 0.15));
   const baseWeight = 1 - tideWeight;
 
@@ -179,9 +220,8 @@ function summarizeDay(hours, skill, orient, board, tidePref, tideImp, crowdImp, 
     const cpen = crowdPenaltyForHour(h.time, crowdImp, crowdWeekend, crowdPeak);
     s = Math.max(0, s * (1 - cpen));
 
-    // Mid-length (kept but not shown specially here; weekly table keeps it)
-    const midScore = 0.40*normToBand(hft,2.5,5.5) + 0.25*windComp + 0.20*(Number.isFinite(h.wave_period)?clamp01((h.wave_period-7)/(14-7)):0) + 0.15*tideScoreFt(h.tide_height_ft, tidePref);
-    midAcc += (midHint ? midScore : 0);
+    const midScore = midHint ? (0.40*normToBand(hft,2.5,5.5) + 0.25*windComp + 0.20*(Number.isFinite(h.wave_period)?clamp01((h.wave_period-7)/(14-7)):0) + 0.15*tideScoreFt(h.tide_height_ft, tidePref)) : 0;
+    midAcc += midScore;
     const midFlag = midHint && midScore >= 0.6;
 
     acc += s;
@@ -194,6 +234,7 @@ function summarizeDay(hours, skill, orient, board, tidePref, tideImp, crowdImp, 
 
 function scoreLabel(s){ if (s>=0.75) return {label:'great',cls:'good'}; if (s>=0.5) return {label:'okay',cls:'ok'}; return {label:'meh',cls:'bad'}; }
 
+// Spots UI
 function loadSpots(){
   const saved = JSON.parse(localStorage.getItem('spots') || 'null');
   const spots = saved && Array.isArray(saved) && saved.length ? saved : SAMPLE_SPOTS;
@@ -222,6 +263,7 @@ function saveSpots(){
   localStorage.setItem('spots', JSON.stringify(spots));
 }
 
+// --- Run forecast ---
 async function runForecast(){
   errBox.classList.add('hidden'); errBox.textContent = '';
   saveSpots();
@@ -239,6 +281,7 @@ async function runForecast(){
 
   results.classList.remove('hidden');
   summary.innerHTML = '<div class="card">Fetching forecasts…</div>';
+  calendar.innerHTML = '';
   daily.innerHTML = '';
 
   const perSpot = [];
@@ -275,21 +318,19 @@ async function runForecast(){
     return;
   }
 
-  // Dates array
-  const dates = perSpot[0].daySummaries.map(d=>d.date);
-  // Weekly totals per spot
+  // Weekly totals and winner
   const totals = perSpot.map(s=>({
     spot: s.spot,
-    mean: s.daySummaries.length ? (s.daySummaries.reduce((a,b)=>a+b.avg,0) / s.daySummaries.length) : 0,
-    days: s.daySummaries
+    mean: s.daySummaries.length ? (s.daySummaries.reduce((a,b)=>a+b.avg,0)/s.daySummaries.length) : 0,
+    meanMid: s.daySummaries.length ? (s.daySummaries.reduce((a,b)=>a+b.avgMid,0)/s.daySummaries.length) : 0
   })).sort((a,b)=>b.mean-a.mean);
 
-  // Summary top pick
-  const champ = totals[0] || { spot:{name:'—'}, mean:0 };
+  const champ = totals[0] || { spot:{name:'—'}, mean:0, meanMid:0 };
   const champLbl = scoreLabel(champ.mean);
+  const champMidTag = (champ.meanMid >= 0.6 && midHint) ? '<span class="badge good">Mid‑length 🤙</span>' : '';
   summary.innerHTML = `
     <div class="card">
-      <h3>Weekly pick: ${champ.spot.name} <span class="badge ${champLbl.cls}">${champLbl.label}</span></h3>
+      <h3>Weekly pick: ${champ.spot.name} <span class="badge ${champLbl.cls}">${champLbl.label}</span> ${champMidTag}</h3>
       <div class="tags">
         <span class="tag">Avg score: <span class="score">${champ.mean.toFixed(2)}</span></span>
         <span class="tag">Skill: ${skill}</span>
@@ -299,48 +340,59 @@ async function runForecast(){
       </div>
     </div>`;
 
-  // Build per-day ranks
-  const byDate = {};
-  dates.forEach(date=>{
-    const rows = totals.map(t=>{
-      const d = t.days.find(x=>x.date===date);
-      return { spot: t.spot, avg: d?.avg ?? 0 };
-    });
-    rows.sort((a,b)=>b.avg-a.avg);
-    byDate[date] = rows;
-  });
+  // Build calendar matrix
+  const dates = perSpot[0].daySummaries.map(d=>d.date);
+  // ranking per day
+  const rankByDay = {};
+  for (const date of dates){
+    const list = perSpot.map(s=>{
+      const d = s.daySummaries.find(x=>x.date===date) || {avg:0};
+      return { spot:s.spot, avg:d.avg };
+    }).sort((a,b)=>b.avg-a.avg);
+    rankByDay[date] = list;
+  }
 
-  // Render calendar table
+  // Desktop table
   const table = document.createElement('table');
-  table.className = 'calendar';
   const thead = document.createElement('thead');
-  const htr = document.createElement('tr');
-  htr.innerHTML = '<th>Spot \ Day</th>' + dates.map(d=>{
-    const dt = new Date(d+'T00:00:00');
-    const label = dt.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' });
-    return `<th>${label}</th>`;
-  }).join('');
-  thead.appendChild(htr);
+  thead.innerHTML = `<tr><th>Spot</th>${dates.map(d=>`<th>${new Date(d).toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'})}</th>`).join('')}</tr>`;
   table.appendChild(thead);
-
   const tbody = document.createElement('tbody');
   totals.forEach(t=>{
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${t.spot.name}</td>` + dates.map(date=>{
-      const ranked = byDate[date];
-      const pos = ranked.findIndex(r=>r.spot.name===t.spot.name);
-      const rank = pos>=0 ? (pos+1) : '—';
-      const score = ranked[pos]?.avg ?? 0;
-      const lbl = score>=0.75 ? 'cell-good' : (score>=0.5 ? 'cell-ok' : 'cell-bad');
-      return `<td><span class="rank">#${rank}</span><br><span class="cell-badge ${lbl}">${score.toFixed(2)}</span></td>`;
-    }).join('');
+    tr.innerHTML = `<td>${t.spot.name}</td>${dates.map(d=>{
+      const list = rankByDay[d];
+      const idx = list.findIndex(x=>x.spot.name===t.spot.name);
+      const avg = list[idx]?.avg ?? 0;
+      const lbl = scoreLabel(avg);
+      return `<td><div class="cell"><span class="rank ${lbl.cls}">#${idx+1}</span><span>${avg.toFixed(2)}</span></div></td>`;
+    }).join('')}`;
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
-  calendarWrap.innerHTML = '';
-  calendarWrap.appendChild(table);
 
-  // Render per-day cards (collapsed by default)
+  // Mobile "day columns"
+  const dayColsWrap = document.createElement('div');
+  dayColsWrap.className = 'day-cols';
+  dates.forEach(d=>{
+    const col = document.createElement('div');
+    col.className = 'day-col';
+    col.innerHTML = `<h4>${new Date(d).toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'})}</h4>` +
+      totals.map(t=>{
+        const list = rankByDay[d];
+        const idx = list.findIndex(x=>x.spot.name===t.spot.name);
+        const avg = list[idx]?.avg ?? 0;
+        const lbl = scoreLabel(avg);
+        return `<div class="cell" style="margin:4px 0;"><span class="rank ${lbl.cls}">#${idx+1}</span><span>${t.spot.name}</span><span>${avg.toFixed(2)}</span></div>`;
+      }).join('');
+    dayColsWrap.appendChild(col);
+  });
+
+  calendar.innerHTML = '';
+  calendar.appendChild(table);
+  calendar.appendChild(dayColsWrap);
+
+  // Build per-day cards (collapsed by default)
   const bestByDay = dates.map(date=>{
     let best=null;
     perSpot.forEach(s=>{
@@ -350,9 +402,6 @@ async function runForecast(){
     });
     return best;
   });
-
-  daily.innerHTML = '<div class="grid cols-3"></div>';
-  const grid = daily.querySelector('.grid');
   bestByDay.forEach(d=>{
     if (!d || !d.best) return;
     const lbl = scoreLabel(d.avg);
@@ -362,10 +411,11 @@ async function runForecast(){
     const wdir = Number.isFinite(d.best.wind_direction_10m) ? d.best.wind_direction_10m.toFixed(0) : '—';
     const when = new Date(d.best.time).toLocaleString([], { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
     const tideFt = (typeof d.best.tide_height_ft === 'number') ? d.best.tide_height_ft.toFixed(1)+' ft' : '—';
+    const midTag = (d.best.mid_flag) ? '<span class="badge good">Mid‑length 🤙</span>' : '';
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = `
-      <h3>${d.date} — Best: ${d.spot.name} <span class="badge ${lbl.cls}">${lbl.label}</span></h3>
+      <h3>${d.date} — Best: ${d.spot.name} <span class="badge ${lbl.cls}">${lbl.label}</span> ${midTag}</h3>
       <div class="tags">
         <span class="tag">Avg AM score: <span class="score">${d.avg.toFixed(2)}</span></span>
         <span class="tag">Go at: ${when}</span>
@@ -381,41 +431,17 @@ async function runForecast(){
           <div><strong>Beach orient:</strong> ${d.spot.orient}°</div>
         </div>
       </div>`;
-    grid.appendChild(card);
+    daily.appendChild(card);
   });
 }
 
-// Events
+// --- Events ---
 addSpotBtn.addEventListener('click', ()=>addSpotRow());
 resetBtn.addEventListener('click', ()=>{ localStorage.removeItem('spots'); loadSpots(); });
 forecastBtn.addEventListener('click', runForecast);
 
-// Init
-function loadSpots(){
-  const saved = JSON.parse(localStorage.getItem('spots') || 'null');
-  const spots = saved && Array.isArray(saved) && saved.length ? saved : SAMPLE_SPOTS;
-  spotsEl.innerHTML = '';
-  spots.forEach(addSpotRow);
+// --- Init ---
+function init(){
+  loadSpots();
 }
-function addSpotRow(spot={name:'',lat:'',lon:'',orient:270}){
-  const node = tpl.content.cloneNode(true);
-  const row = node.querySelector('.spot-row');
-  row.querySelector('.spot-name').value = spot.name || '';
-  row.querySelector('.spot-lat').value = spot.lat ?? '';
-  row.querySelector('.spot-lon').value = spot.lon ?? '';
-  row.querySelector('.spot-orient').value = spot.orient ?? 270;
-  row.querySelector('.delete').addEventListener('click', ()=>{ row.remove(); saveSpots(); });
-  Array.from(row.querySelectorAll('input')).forEach(inp=>inp.addEventListener('change', saveSpots));
-  spotsEl.appendChild(node);
-}
-function saveSpots(){
-  const rows = Array.from(document.querySelectorAll('.spot-row'));
-  const spots = rows.map(r=>({
-    name: r.querySelector('.spot-name').value.trim(),
-    lat: parseFloat(r.querySelector('.spot-lat').value),
-    lon: parseFloat(r.querySelector('.spot-lon').value),
-    orient: clamp360(parseFloat(r.querySelector('.spot-orient').value) || 270),
-  })).filter(s=>s.name && Number.isFinite(s.lat) && Number.isFinite(s.lon));
-  localStorage.setItem('spots', JSON.stringify(spots));
-}
-loadSpots();
+init();
