@@ -76,6 +76,7 @@
     <div class="control">
       <button id="forecast" class="primary">🔮 Forecast week</button>
       <button id="reset" class="link">Reset to San Diego sample</button>
+      <label style="margin-left:12px;"><input id="debugToggle" type="checkbox" checked> Debug mode</label>
     </div>
   </section>
 
@@ -85,8 +86,15 @@
     <div id="daily"></div>
   </section>
 
+  <section class="debug">
+    <details open>
+      <summary>Debug log</summary>
+      <pre id="debugLog">(waiting)</pre>
+    </details>
+  </section>
+
   <footer>
-    <p>Data: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo Marine & Tide</a>. All heuristics are for fun. Double-check cams and local knowledge.</p>
+    <p>Data: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo Marine, Forecast & Tide</a>. All heuristics are for fun. Double-check cams and local knowledge (Martin and Noah's opinions).</p>
   </footer>
 
   <template id="spotRowTpl">

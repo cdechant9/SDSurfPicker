@@ -33,8 +33,10 @@ small { color:var(--muted); display:block; margin-top:6px; }
 .table th { color:#cbd5e1; font-weight:700; }
 .badge { border-radius:6px; padding:2px 6px; font-weight:700; }
 .badge.good { background:#0b3a28; color:#9ff6ce; } .badge.ok { background:#3a2f0b; color:#f7e7a6; } .badge.bad { background:#3a0b0b; color:#ffbfbf; }
-footer { text-align:center; color:var(--muted); padding:24px; }
+footer { text-align:center; color:var(--muted); padding: 24px; }
 .range-wrap { display:flex; flex-direction:column; gap:6px; }
 .range-labels { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-top:-4px; }
 .err { margin-top:10px; background:#3a0b0b; color:#ffbfbf; border:1px solid #7f1d1d; border-radius:10px; padding:8px; }
 .hidden { display:none; }
+.debug { max-width:1100px; margin:12px auto; }
+#debugLog { background:#0b1220; color:#cbd5e1; padding:12px; border-radius:10px; border:1px dashed #1f2937; overflow:auto; max-height:300px; }

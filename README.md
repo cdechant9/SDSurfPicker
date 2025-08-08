@@ -1,25 +1,22 @@
-# Best Surf Beach — Official Surfwives Beach Selector 🏄‍♂️ 🏳️‍🌈
+# Best Surf Beach — Weekly Picker (Debug Build)
 
-**This build fixes a bug where scores showed as 0 if the Tide API failed.**  
-Tide is now optional; waves/wind forecast will still score even if tide data is unavailable for your exact coordinates.
+This build logs **every API request** (URL + status + number of rows) to both the **browser console** and the **on‑page Debug log**.
 
-### Features
-- Board + skill aware scoring
-- Tide preference (Low/Mid/High) with importance slider
-- Crowd factor (ignore/light/strong), optional weekend & 7–9am penalties
-- **Mid‑length 🤙 hint** when conditions favor a ~6'8″ wide pointy board (Tells cam when to take out Danny Devito vs Brody).
-- San Diego defaults, surfwives regular spots
-- Error banner shows the last fetch problem, if any
+### What to look for
+- For each spot you should see three GETs:
+  1. Marine (wave_height, wave_period) → `https://marine-api.open-meteo.com/v1/marine`
+  2. Forecast (wind) → `https://api.open-meteo.com/v1/forecast`
+  3. Tide (optional) → `https://marine-api.open-meteo.com/v1/tide`
+- A **ROWS N** line for each, where `N` should be > 0.
+- A **MERGED HOURS M** line per spot. If `M` is 0, something’s off with the coordinates.
 
-### Publish on GitHub Pages
-1. Create a repo (public is easiest).
-2. Upload `index.html`, `style.css`, `app.js`, `README.md` to the repo root.
-3. Settings → Pages → Source: `main` / `(root)` → Save.
-4. Wait ~1–2 minutes. Open `https://<your-username>.github.io/<repo-name>/`.
+### Common fixes
+- If rows are 0 for Marine, nudge longitude **0.01–0.02° west** (slightly offshore) and retry.
+- Tide can fail and that’s fine; scoring continues.
+- Use **Reset to San Diego sample** to verify the app works in your area.
 
-### Tips
-- If you see “No forecast data,” click **Reset to San Diego sample** then **Forecast week**.
-- If the error banner says Tide API error, that’s fine — the app continues with waves/wind.
-- For super‑reliable data, keep spot coordinates slightly offshore (e.g., ~0.01–0.02° west).
+### Footer text
+“All heuristics are for fun. Double-check cams and local knowledge (Martin and Noah's opinions).”
 
-MIT License — have fun and don’t sue me if you pearl on a knee‑high dribbler.
+### Deploy
+Upload `index.html`, `style.css`, `app.js`, `README.md` to your repo root and enable GitHub Pages.
