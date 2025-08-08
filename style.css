@@ -1,6 +1,60 @@
+* { box-sizing: border-box; }
+:root {
+  --bg:#0f172a; --card:#111827; --text:#e5e7eb; --muted:#9ca3af; --accent:#22d3ee;
+  --bad:#ef4444; --ok:#f59e0b; --good:#10b981;
+}
+html, body { margin:0; padding:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+header { padding:24px 16px; text-align:center; border-bottom:1px solid #1f2937; }
+h1 { margin:0; font-size: clamp(22px, 4vw, 34px); }
+.sub { color:var(--muted); margin-top:6px; }
+section { padding:16px; max-width:1100px; margin:0 auto; }
 
-.calendar { display: grid; gap: 8px; }
+.controls { display:grid; gap: 16px; grid-template-columns: 1fr; }
+.settings summary { cursor:pointer; font-weight:700; margin-bottom:8px; }
+.settings[open] summary { margin-bottom:4px; }
+.control { background: var(--card); padding: 12px; border:1px solid #1f2937; border-radius:10px; }
+label { font-weight:600; margin-right:8px; }
+.row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+input, select { padding:10px 12px; background:#0b1220; border:1px solid #1f2937; color:var(--text); border-radius:8px; font-size:16px; }
+select { min-width: 200px; }
+button { cursor:pointer; border:1px solid #1f2937; background:#0b1220; color:var(--text); padding:10px 12px; border-radius:8px; font-size:16px; }
+button.primary { background: var(--accent); color:#061015; border-color: transparent; font-weight:700; }
+button.secondary { border-style:dashed; }
+button.link { background: transparent; border: none; color: var(--muted); text-decoration: underline; padding: 0; margin-left: 8px; }
+
+#spots { display:grid; gap: 8px; }
+.spot-row { display:grid; gap: 8px; grid-template-columns: 2fr 1fr 1fr 1fr auto; align-items:center; }
+.spot-row .delete { background:#1f2937; }
+
+.results.hidden { display:none; }
+.card { background: var(--card); border:1px solid #1f2937; border-radius:12px; padding: 12px; }
+.grid { display:grid; gap: 12px; }
+.grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) { .grid.cols-3 { grid-template-columns: 1fr; } .spot-row { grid-template-columns: 1fr 1fr 1fr 1fr auto; } }
+.tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #1f2937; background:#0b1220; color:var(--muted); margin-right:6px; }
+.score { font-weight:800; }
+.bad { color: var(--bad); } .ok { color: var(--ok); } .good { color: var(--good); }
+small { color: var(--muted); display:block; margin-top:6px; }
+.table { width:100%; border-collapse: collapse; margin-top: 8px; }
+.table th, .table td { border-bottom:1px solid #1f2937; padding:8px; text-align:left; }
+.table th { color:#cbd5e1; font-weight:700; }
+.badge { border-radius:6px; padding:2px 6px; font-weight:700; }
+.badge.good { background:#0b3a28; color:#9ff6ce; }
+.badge.ok { background:#3a2f0b; color:#f7e7a6; }
+.badge.bad { background:#3a0b0b; color:#ffbfbf; }
+footer { text-align:center; color:var(--muted); padding: 24px; }
+
+.range-wrap { display:flex; flex-direction:column; gap:6px; }
+.range-labels { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-top:-4px; }
+
+/* Calendar base (desktop grid) */
+.calendar { display: grid; gap: 8px; grid-template-columns: repeat(7, minmax(0,1fr)); }
+.calendar .day-col .cell { margin-bottom:8px; }
+
+/* MOBILE: swipe columns */
 @media (max-width: 720px) {
+  .settings[open] { /* collapse settings by default on phones via script; CSS keeps styles tidy */ }
   .calendar {
     display: flex;
     overflow-x: auto;
@@ -17,3 +71,20 @@
   }
   .calendar .cell { padding: 8px; }
 }
+
+/* Per-day cards mobile scroller */
+@media (max-width: 720px) {
+  #daily .grid { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+  #daily .card { min-width: 85vw; scroll-snap-align: start; }
+}
+
+/* Sticky action bar on mobile with safe-area */
+@media (max-width: 720px) {
+  .cta-bar { position: sticky; bottom: 0; background: var(--card); padding: 10px; border-top: 1px solid #1f2937; z-index: 10; }
+  .cta-bar .primary { width: 100%; }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  .cta-bar { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+}
+
+.err { margin-top:10px; background:#3a0b0b; color:#ffbfbf; border:1px solid #7f1d1d; border-radius:10px; padding:8px; }
+.hidden { display:none; }
