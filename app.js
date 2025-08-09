@@ -335,7 +335,7 @@ function rankForDate(rowsSorted, date, spotName){
 async function runForecast(){
   if (window.matchMedia('(max-width: 720px)').matches) {
     settingsPanel.open = false;
-    cardsPanel.open = false;
+    cardsPanel.open = true;
   }
 
   errBox.classList.add('hidden');
